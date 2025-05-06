@@ -8,15 +8,11 @@ A user patch for KOReader that sorts your ebooks in "Author - Series - Title" fo
 - Makes it easier to find books by the same author or series
 - Fully compatible with existing KOReader functionality
 
-![Screenshot](screenshot.jpeg)
-
-<a href="https://www.buymeacoffee.com/chiahsien"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=chiahsien&button_colour=5F7FFF&font_colour=ffffff&font_family=Comic&outline_colour=000000&coffee_colour=FFDD00" /></a>
-
 ## Installation
 
 For more information, visit: https://github.com/koreader/koreader/wiki/User-patches
 
-1. Download the patch file
+1. Download the `2-sort-by-author-series-title.lua` patch file
 2. Create the `koreader/patches` folder if it doesn't exist yet
 3. Copy the file to the `koreader/patches` folder
 4. Restart KOReader
@@ -26,6 +22,10 @@ For more information, visit: https://github.com/koreader/koreader/wiki/User-patc
 1. Click the `Sort by:` menu item in the file browser
 2. Select the "Author-Series-Title" option
 3. Your ebooks will be reorganized according to the new format
+
+![Screenshot](screenshot.jpeg)
+
+<a href="https://www.buymeacoffee.com/chiahsien"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=chiahsien&button_colour=5F7FFF&font_colour=ffffff&font_family=Comic&outline_colour=000000&coffee_colour=FFDD00" /></a>
 
 ## License
 
