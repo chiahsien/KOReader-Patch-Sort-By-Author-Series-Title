@@ -1,18 +1,19 @@
-# KOReader Sort by Author-Series-Title Patch
+# KOReader Sort by Author-Series Patch
 
-A user patch for KOReader that sorts your ebooks in "Author - Series - Title" format.
+A user patch for KOReader that adds two new sorting options to the file browser: "Author - Series - Title" and "Author - Series - Published Date".
 
 ## Features
 
-- Adds a new "Author - Series - Title" sorting option in the file browser
-- Makes it easier to find books by the same author or series
+- Add a new "Author - Series - Title" sorting option in the file browser
+- Add a new "Author - Series - Published Date" sorting option in the file browser
+- Make it easier to find books by the same author or series
 - Fully compatible with existing KOReader functionality
 
 ## Installation
 
-For more information, visit: https://github.com/koreader/koreader/wiki/User-patches
+For more information, see: https://github.com/koreader/koreader/wiki/User-patches
 
-1. Download the `2-sort-by-author-series-title.lua` patch file
+1. Download the `2-sort-by-author-series.lua` patch file
 2. Create the `koreader/patches` folder if it doesn't exist yet
 3. Copy the file to the `koreader/patches` folder
 4. Restart KOReader
@@ -20,8 +21,9 @@ For more information, visit: https://github.com/koreader/koreader/wiki/User-patc
 ## Usage
 
 1. Click the `Sort by:` menu item in the file browser
-2. Select the "Author-Series-Title" option
-3. Your ebooks will be reorganized according to the new format
+2. Select either the "author - series - title" or "author - series - published date" option
+3. Your ebooks will be sorted according to the selected option
+4. If the 'Published Date' is missing, it will fall back to sorting by 'Title'.
 
 ![Screenshot](screenshot.jpeg)
 
