@@ -9,6 +9,17 @@ local _ = require("gettext")
 local CustomSorting = {
     -- Common item preparation function
     prepareItem = function(item, ui)
+        if not ui or not ui.bookinfo then
+            -- ui or bookinfo is nil, cannot get metadata, return with default values
+            item.doc_props = {
+                authors = "\u{FFFF}",
+                series = "\u{FFFF}",
+                display_title = item.text,
+                date = "\u{FFFF}"
+            }
+            return
+        end
+
         -- Get document properties (metadata)
         local doc_props = ui.bookinfo:getDocProps(item.path or item.file)
 
