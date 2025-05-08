@@ -1,5 +1,5 @@
 -- Custom sorting algorithms for KOReader file browser
--- Place this file in {data_dir}/patches/
+-- Place this file in koreader/patches/
 
 local BookList = require("ui/widget/booklist")
 local ffiUtil = require("ffi/util")
@@ -15,7 +15,7 @@ local CustomSorting = {
                 authors = "\u{FFFF}",
                 series = "\u{FFFF}",
                 display_title = item.text,
-                date = "\u{FFFF}"
+                pubdate = "\u{FFFF}"
             }
             return
         end
@@ -27,7 +27,7 @@ local CustomSorting = {
         doc_props.authors = doc_props.authors or "\u{FFFF}" -- Sort unknown authors last
         doc_props.series = doc_props.series or "\u{FFFF}" -- Sort books without series last
         doc_props.display_title = doc_props.display_title or item.text -- Use filename if no title
-        doc_props.date = doc_props.date or "\u{FFFF}" -- Sort books without date last
+        doc_props.pubdate = doc_props.pubdate or "\u{FFFF}" -- Sort books without publication date last
 
         -- Store the properties in the item for use in the sorting function
         item.doc_props = doc_props
@@ -36,25 +36,30 @@ local CustomSorting = {
     -- Common function to format display information
     formatInfo = function(item)
         local info = ""
-        if item.doc_props then
-            if item.doc_props.authors and item.doc_props.authors ~= "\u{FFFF}" then
-                info = item.doc_props.authors
 
-                -- Add series information if available
-                if item.doc_props.series and item.doc_props.series ~= "\u{FFFF}" then
-                    if item.doc_props.series_index then
-                        info = info .. " • " .. item.doc_props.series .. " #" .. item.doc_props.series_index
-                    else
-                        info = info .. " • " .. item.doc_props.series
-                    end
-                end
+        if not item.doc_props then
+            return info
+        end
 
-                -- Add published date if available
-                if item.doc_props.date and item.doc_props.date ~= "\u{FFFF}" then
-                    info = info .. " • " .. item.doc_props.date
-                end
+        -- Add authors if available
+        if item.doc_props.authors and item.doc_props.authors ~= "\u{FFFF}" then
+            info = info .. item.doc_props.authors
+        end
+
+        -- Add series information if available
+        if item.doc_props.series and item.doc_props.series ~= "\u{FFFF}" then
+            if item.doc_props.series_index then
+                info = info .. " • " .. item.doc_props.series .. " #" .. item.doc_props.series_index
+            else
+                info = info .. " • " .. item.doc_props.series
             end
         end
+
+        -- Add published date if available
+        if item.doc_props.pubdate and item.doc_props.pubdate ~= "\u{FFFF}" then
+            info = info .. " • " .. item.doc_props.pubdate
+        end
+
         return info
     end,
 
@@ -92,7 +97,9 @@ BookList.collates.author_series_title = {
     end,
 
     -- Sorting function
-    init_sort_func = function()
+    init_sort_func = function(cache)
+        local my_cache = cache or {}
+
         return function(a, b)
             -- Use common comparison for author and series
             local result = CustomSorting.compareAuthorSeries(a, b)
@@ -102,7 +109,7 @@ BookList.collates.author_series_title = {
 
             -- Finally, sort by title
             return ffiUtil.strcoll(a.doc_props.display_title, b.doc_props.display_title)
-        end
+        end, my_cache
     end,
 
     -- Display function
@@ -123,7 +130,9 @@ BookList.collates.author_series_date = {
     end,
 
     -- Sorting function
-    init_sort_func = function()
+    init_sort_func = function(cache)
+        local my_cache = cache or {}
+
         return function(a, b)
             -- Use common comparison for author and series
             local result = CustomSorting.compareAuthorSeries(a, b)
@@ -138,7 +147,7 @@ BookList.collates.author_series_date = {
 
             -- If everything else is the same, sort by title as a fallback
             return ffiUtil.strcoll(a.doc_props.display_title, b.doc_props.display_title)
-        end
+        end, my_cache
     end,
 
     -- Display function
