@@ -5,154 +5,205 @@ local BookList = require("ui/widget/booklist")
 local ffiUtil = require("ffi/util")
 local _ = require("gettext")
 
--- Common helper functions for our custom sorting algorithms
-local CustomSorting = {
-    -- Common item preparation function
-    prepareItem = function(item, ui)
-        if not ui or not ui.bookinfo then
-            -- ui or bookinfo is nil, cannot get metadata, return with default values
-            item.doc_props = {
-                authors = "\u{FFFF}",
-                series = "\u{FFFF}",
-                display_title = item.text,
-                pubdate = "\u{FFFF}"
-            }
-            return
-        end
-
-        -- Get document properties (metadata)
-        local doc_props = ui.bookinfo:getDocProps(item.path or item.file)
-
-        -- Ensure we have values for all fields we need to sort by
-        doc_props.authors = doc_props.authors or "\u{FFFF}" -- Sort unknown authors last
-        doc_props.series = doc_props.series or "\u{FFFF}" -- Sort books without series last
-        doc_props.display_title = doc_props.display_title or item.text -- Use filename if no title
-        doc_props.pubdate = doc_props.pubdate or "\u{FFFF}" -- Sort books without publication date last
-
-        -- Store the properties in the item for use in the sorting function
-        item.doc_props = doc_props
-    end,
-
-    -- Common function to format display information
-    formatInfo = function(item)
-        local info = ""
-
-        if not item.doc_props then
-            return info
-        end
-
-        -- Add authors if available
-        if item.doc_props.authors and item.doc_props.authors ~= "\u{FFFF}" then
-            info = info .. item.doc_props.authors
-        end
-
-        -- Add series information if available
-        if item.doc_props.series and item.doc_props.series ~= "\u{FFFF}" then
-            if item.doc_props.series_index then
-                info = info .. " • " .. item.doc_props.series .. " #" .. item.doc_props.series_index
-            else
-                info = info .. " • " .. item.doc_props.series
-            end
-        end
-
-        -- Add published date if available
-        if item.doc_props.pubdate and item.doc_props.pubdate ~= "\u{FFFF}" then
-            info = info .. " • " .. item.doc_props.pubdate
-        end
-
-        return info
-    end,
-
-    -- Common comparison function for author and series
-    compareAuthorSeries = function(a, b)
-        -- First sort by author
-        if a.doc_props.authors ~= b.doc_props.authors then
-            return ffiUtil.strcoll(a.doc_props.authors, b.doc_props.authors)
-        end
-
-        -- If authors are the same, sort by series
-        if a.doc_props.series ~= b.doc_props.series then
-            return ffiUtil.strcoll(a.doc_props.series, b.doc_props.series)
-        end
-
-        -- If in the same series, sort by series index if available
-        if a.doc_props.series_index and b.doc_props.series_index and
-           a.doc_props.series ~= "\u{FFFF}" then -- Only if they're actually in a series
-            return a.doc_props.series_index < b.doc_props.series_index
-        end
-
-        return nil -- No decision made, continue with specific comparison
+local function prepareItem(item, ui)
+    if not ui or not ui.bookinfo then
+        item.doc_props = {
+            authors = "\u{FFFF}",
+            series = "\u{FFFF}",
+            display_title = item.text,
+            pubdate = "\u{FFFF}"
+        }
+        return
     end
+
+    local doc_props = ui.bookinfo:getDocProps(item.path or item.file)
+    doc_props.authors = doc_props.authors or "\u{FFFF}"
+    doc_props.series = doc_props.series or "\u{FFFF}"
+    doc_props.display_title = doc_props.display_title or item.text
+    doc_props.pubdate = doc_props.pubdate or "\u{FFFF}"
+    item.doc_props = doc_props
+end
+
+local function processAuthorName(author_name, sort_type)
+    if not author_name or author_name == "\u{FFFF}" then
+        return author_name
+    end
+
+    if sort_type == "last_first" then
+        local words = {}
+        for word in author_name:gmatch("%S+") do
+            table.insert(words, word)
+        end
+        if #words > 1 then
+            local last_name = words[#words]
+            local first_names = {}
+            for i = 1, #words - 1 do
+                table.insert(first_names, words[i])
+            end
+            return last_name .. ", " .. table.concat(first_names, " ")
+        end
+    end
+
+    return author_name
+end
+
+local function formatInfo(item, sort_type)
+    local info = ""
+    if not item.doc_props then
+        return info
+    end
+
+    if item.doc_props.authors and item.doc_props.authors ~= "\u{FFFF}" then
+        local formatted_author = processAuthorName(item.doc_props.authors, sort_type)
+        info = info .. formatted_author
+    end
+
+    if item.doc_props.series and item.doc_props.series ~= "\u{FFFF}" then
+        if item.doc_props.series_index then
+            info = info .. " • " .. item.doc_props.series .. " #" .. item.doc_props.series_index
+        else
+            info = info .. " • " .. item.doc_props.series
+        end
+    end
+
+    if item.doc_props.pubdate and item.doc_props.pubdate ~= "\u{FFFF}" then
+        info = info .. " • " .. item.doc_props.pubdate
+    end
+
+    return info
+end
+
+local function compareAuthorSeries(a, b, author_sort_type)
+    local author_a = processAuthorName(a.doc_props.authors, author_sort_type)
+    local author_b = processAuthorName(b.doc_props.authors, author_sort_type)
+
+    if author_a ~= author_b then
+        return ffiUtil.strcoll(author_a, author_b)
+    end
+
+    if a.doc_props.series ~= b.doc_props.series then
+        return ffiUtil.strcoll(a.doc_props.series, b.doc_props.series)
+    end
+
+    if a.doc_props.series_index and b.doc_props.series_index and
+       a.doc_props.series ~= "\u{FFFF}" then
+        return a.doc_props.series_index < b.doc_props.series_index
+    end
+
+    return nil
+end
+
+-- Helper functions defined at module level
+local CustomSorting = {
+    prepareItem = prepareItem,
+    formatInfo = formatInfo,
+    compareAuthorSeries = compareAuthorSeries,
 }
 
--- First sorting option: Author, Series, Title
-BookList.collates.author_series_title = {
-    text = _("author - series - title"),
-    menu_order = 5, -- Position at the beginning of sorting methods
-    can_collate_mixed = false, -- Keep folders separate from files
+-- Sorting options
+BookList.collates.author_first_last_series_title = {
+    text = _("author (first name) - series - title"),
+    menu_order = 5,
+    can_collate_mixed = false,
 
-    -- Item preparation function
     item_func = function(item, ui)
         CustomSorting.prepareItem(item, ui)
     end,
 
-    -- Sorting function
     init_sort_func = function(cache)
         local my_cache = cache or {}
-
         return function(a, b)
-            -- Use common comparison for author and series
-            local result = CustomSorting.compareAuthorSeries(a, b)
+            local result = CustomSorting.compareAuthorSeries(a, b, "first_last")
             if result ~= nil then
                 return result
             end
-
-            -- Finally, sort by title
             return ffiUtil.strcoll(a.doc_props.display_title, b.doc_props.display_title)
         end, my_cache
     end,
 
-    -- Display function
     mandatory_func = function(item)
-        return CustomSorting.formatInfo(item)
+        return CustomSorting.formatInfo(item, "first_last")
     end,
 }
 
--- Second sorting option: Author, Series, Published Date
-BookList.collates.author_series_date = {
-    text = _("author - series - published date"),
-    menu_order = 6, -- Position right after the first custom sorting method
-    can_collate_mixed = false, -- Keep folders separate from files
+BookList.collates.author_last_first_series_title = {
+    text = _("author (last name) - series - title"),
+    menu_order = 6,
+    can_collate_mixed = false,
 
-    -- Item preparation function
     item_func = function(item, ui)
         CustomSorting.prepareItem(item, ui)
     end,
 
-    -- Sorting function
     init_sort_func = function(cache)
         local my_cache = cache or {}
-
         return function(a, b)
-            -- Use common comparison for author and series
-            local result = CustomSorting.compareAuthorSeries(a, b)
+            local result = CustomSorting.compareAuthorSeries(a, b, "last_first")
             if result ~= nil then
                 return result
             end
-
-            -- If no series index or same series index, sort by published date
-            if a.doc_props.date ~= b.doc_props.date then
-                return ffiUtil.strcoll(a.doc_props.date, b.doc_props.date)
-            end
-
-            -- If everything else is the same, sort by title as a fallback
             return ffiUtil.strcoll(a.doc_props.display_title, b.doc_props.display_title)
         end, my_cache
     end,
 
-    -- Display function
     mandatory_func = function(item)
-        return CustomSorting.formatInfo(item)
+        return CustomSorting.formatInfo(item, "last_first")
+    end,
+}
+
+BookList.collates.author_first_last_series_date = {
+    text = _("author (first name) - series - published date"),
+    menu_order = 7,
+    can_collate_mixed = false,
+
+    item_func = function(item, ui)
+        CustomSorting.prepareItem(item, ui)
+    end,
+
+    init_sort_func = function(cache)
+        local my_cache = cache or {}
+        return function(a, b)
+            local result = CustomSorting.compareAuthorSeries(a, b, "first_last")
+            if result ~= nil then
+                return result
+            end
+            if a.doc_props.pubdate ~= b.doc_props.pubdate then
+                return ffiUtil.strcoll(a.doc_props.pubdate, b.doc_props.pubdate)
+            end
+            return ffiUtil.strcoll(a.doc_props.display_title, b.doc_props.display_title)
+        end, my_cache
+    end,
+
+    mandatory_func = function(item)
+        return CustomSorting.formatInfo(item, "first_last")
+    end,
+}
+
+BookList.collates.author_last_first_series_date = {
+    text = _("author (last name) - series - published date"),
+    menu_order = 8,
+    can_collate_mixed = false,
+
+    item_func = function(item, ui)
+        CustomSorting.prepareItem(item, ui)
+    end,
+
+    init_sort_func = function(cache)
+        local my_cache = cache or {}
+        return function(a, b)
+            local result = CustomSorting.compareAuthorSeries(a, b, "last_first")
+            if result ~= nil then
+                return result
+            end
+            if a.doc_props.pubdate ~= b.doc_props.pubdate then
+                return ffiUtil.strcoll(a.doc_props.pubdate, b.doc_props.pubdate)
+            end
+            return ffiUtil.strcoll(a.doc_props.display_title, b.doc_props.display_title)
+        end, my_cache
+    end,
+
+    mandatory_func = function(item)
+        return CustomSorting.formatInfo(item, "last_first")
     end,
 }
 
